@@ -1,0 +1,9 @@
+*.dump
+old
+deps
+rel
+docs
+Examples
+log
+*.beam
+*~

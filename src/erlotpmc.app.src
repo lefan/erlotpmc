@@ -1,0 +1,12 @@
+{application, erlotpmc,
+ [
+  {description, "Erlang/OTP memcached client library"},
+  {vsn, "0.1"},
+  {registered, [erlotpmc]},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { erlotpmc_app, []}},
+  {env, [{mcservers,[{"localhost",11211,1},{"localhost",11311,1}]}]}
+ ]}.
