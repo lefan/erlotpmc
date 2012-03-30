@@ -1,0 +1,2 @@
+ErlOTPmc is OTP version of erlmc - Erlang Memcached client library.
+I've tried to keep native erlmc API and follow OTP style.
