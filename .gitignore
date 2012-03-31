@@ -7,3 +7,4 @@ Examples
 log
 *.beam
 *~
+.eunit/
