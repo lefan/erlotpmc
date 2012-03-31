@@ -32,7 +32,7 @@ doc:
 		rebar skip_deps=true doc
 
 console:
-		erl -pa ebin include deps/*/ebin deps/*/include apps/*/ebin apps/*/include -boot start_sasl  -sname erlmc -setcookie erlmc
+		erl -pa ebin include test eps/*/ebin deps/*/include apps/*/ebin apps/*/include -boot start_sasl  -sname erlmc -setcookie erlmc
 
 
 analyze: checkplt

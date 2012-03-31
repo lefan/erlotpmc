@@ -16,7 +16,7 @@
 -include("erlmc.hrl").
 
 %% API
--export([start_link/0,start_link/1,start/0]).
+-export([start_link/0,start_link/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -53,8 +53,7 @@
 %%--------------------------------------------------------------------
 %%% API
 %%--------------------------------------------------------------------
-start()->
-    gen_server:start_link([{"licalhost",11211,1}]).
+
 %%--------------------------------------------------------------------
 %% @doc
 %% Starts the server
@@ -63,8 +62,8 @@ start()->
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
-    {ok,CacheServers}=application:get_env(mcservers),
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [CacheServers], []).
+    {ok,CacheServers}=application:get_env(erlotpmc,mcservers),
+    start_link(CacheServers).
 
 start_link(CacheServers) ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [CacheServers], []).
@@ -202,7 +201,11 @@ init([CacheServers]) ->
     [begin
 	 [start_connection(Host, Port) || _ <- lists:seq(1, ConnPoolSize)]
      end || {Host, Port, ConnPoolSize} <- CacheServers],
-    Cmon_timer_ref=erlang:send_after(?CMONTIME,self(),{cmontime,?CMONTIME}),
+    WDT=case application:get_env(erlotpmc,wd_timer) of
+	    {ok,Val} when is_integer(Val) -> Val;
+	    _Else -> ?CMONTIME
+	end,
+    Cmon_timer_ref=erlang:send_after(WDT,self(),{cmontime,WDT}),
     {ok, #state{cacheservers=CacheServers, cmon_time_ref=Cmon_timer_ref}}.
 
 %%--------------------------------------------------------------------
