@@ -191,8 +191,8 @@ call(Pid, Msg, Timeout) ->
 %%% Stateful loop
 %%--------------------------------------------------------------------	
 init([CacheServers]) ->
-    ets:new(erlmc_continuum, [ordered_set, protected, named_table]),
-    ets:new(erlmc_connections, [bag, protected, named_table]),
+    ets:new(erlmc_continuum, [ordered_set, named_table, {read_concurrency, true}]),
+    ets:new(erlmc_connections, [bag, named_table]),
 
     %% Continuum = [{uint(), {Host, Port}}]
     [add_server_to_continuum(Host, Port) || {Host, Port, _} <- CacheServers],
