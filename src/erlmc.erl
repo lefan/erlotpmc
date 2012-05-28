@@ -62,8 +62,11 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
-    {ok,CacheServers}=application:get_env(erlotpmc,mcservers),
-    start_link(CacheServers).
+    Servers = case application:get_env(erlotpmc,mcservers) of
+        {ok, CacheServers} -> CacheServers;
+        undefined -> []
+    end,
+    start_link(Servers).
 
 start_link(CacheServers) ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [CacheServers], []).
