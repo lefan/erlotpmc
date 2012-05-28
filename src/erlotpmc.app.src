@@ -8,8 +8,5 @@
                   stdlib
                  ]},
   {mod, { erlotpmc_app, []}},
-  {env, [{mcservers,[{"localhost",11211,1}]},
-         {wd_timer,5000}
-        ]
-  }
+  {env, []}
  ]}.
