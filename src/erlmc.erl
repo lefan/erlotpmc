@@ -20,7 +20,7 @@
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+         terminate/2, code_change/3]).
 
 -define(SERVER, ?MODULE). 
 
@@ -32,8 +32,8 @@
 -define(DEBUG(Format, Args), true).
 
 -record(state, {cacheservers=[]::list(),% list of Cache Servers ex. [{"localhost",Port,PoolSize}]
-		cmon_time_ref
-	       }).
+                cmon_time_ref
+               }).
 
 %%%===================================================================
 %%% API
@@ -44,9 +44,9 @@
 
 %% api callbacks
 -export([get/1, get_many/1, add/2, add/3, set/2, set/3, 
-		 replace/2, replace/3, delete/1, increment/4, decrement/4,
-		 append/2, prepend/2, stats/0, stats/2, flush/0, flush/1, quit/0, 
-		 version/0]).
+                 replace/2, replace/3, delete/1, increment/4, decrement/4,
+                 append/2, prepend/2, stats/0, stats/2, flush/0, flush/1, quit/0, 
+                 version/0]).
 
 
 
@@ -99,17 +99,17 @@ get(Key0) ->
 get_many(Keys) ->
     Self = self(),
     Pids = [spawn(fun() -> 
-			  Res = (catch ?MODULE:get(Key)),
-			  Self ! {self(), {Key, Res}}
-		  end) || Key <- Keys],
+                          Res = (catch ?MODULE:get(Key)),
+                          Self ! {self(), {Key, Res}}
+                  end) || Key <- Keys],
     lists:reverse(lists:foldl(
-		    fun(Pid, Acc) ->
-			    receive
-				{Pid, {Key, Res}} -> [{Key, Res}|Acc]
-			    after ?TIMEOUT ->
-				    Acc
-			    end
-		    end, [], Pids)).
+                    fun(Pid, Acc) ->
+                            receive
+                                {Pid, {Key, Res}} -> [{Key, Res}|Acc]
+                            after ?TIMEOUT ->
+                                    Acc
+                            end
+                    end, [], Pids)).
 
 add(Key, Value) ->
     add(Key, Value, 0).
@@ -166,9 +166,9 @@ flush(Expiration) when is_integer(Expiration) ->
 
 quit() ->
     [begin
-	 {Key, [
-		{'EXIT',{shutdown,{gen_server,call,[Pid,quit,?TIMEOUT]}}} == 
-		    (catch gen_server:call(Pid, quit, ?TIMEOUT)) || Pid <- Pids]}
+         {Key, [
+                {'EXIT',{shutdown,{gen_server,call,[Pid,quit,?TIMEOUT]}}} == 
+                    (catch gen_server:call(Pid, quit, ?TIMEOUT)) || Pid <- Pids]}
      end || {Key, Pids} <- unique_connections()].
 
 version() ->
@@ -176,8 +176,8 @@ version() ->
 
 multi_call(Msg) ->
     [begin
-	 Pid = lists:nth(random:uniform(length(Pids)), Pids),
-	 {{Host, Port}, gen_server:call(Pid, Msg, ?TIMEOUT)}
+         Pid = lists:nth(random:uniform(length(Pids)), Pids),
+         {{Host, Port}, gen_server:call(Pid, Msg, ?TIMEOUT)}
      end || {{Host, Port}, Pids} <- unique_connections()].
 
 host_port_call(Host, Port, Msg) ->
@@ -186,13 +186,13 @@ host_port_call(Host, Port, Msg) ->
 
 call(Pid, Msg, Timeout) ->
     case gen_server:call(Pid, Msg, Timeout) of
-	{error, Error} -> exit({erlmc, Error});
-	Resp -> Resp
+        {error, Error} -> exit({erlmc, Error});
+        Resp -> Resp
     end.
-	
+        
 %%--------------------------------------------------------------------
 %%% Stateful loop
-%%--------------------------------------------------------------------	
+%%--------------------------------------------------------------------  
 init([CacheServers]) ->
     ets:new(erlmc_continuum, [ordered_set, named_table, {read_concurrency, true}]),
     ets:new(erlmc_connections, [bag, named_table]),
@@ -202,12 +202,12 @@ init([CacheServers]) ->
 
     %% Connections = [{{Host,Port}, ConnPid}]
     [begin
-	 [start_connection(Host, Port) || _ <- lists:seq(1, ConnPoolSize)]
+         [start_connection(Host, Port) || _ <- lists:seq(1, ConnPoolSize)]
      end || {Host, Port, ConnPoolSize} <- CacheServers],
     WDT=case application:get_env(erlotpmc,wd_timer) of
-	    {ok,Val} when is_integer(Val) -> Val;
-	    _Else -> ?CMONTIME
-	end,
+            {ok,Val} when is_integer(Val) -> Val;
+            _Else -> ?CMONTIME
+        end,
     Cmon_timer_ref=erlang:send_after(WDT,self(),{cmontime,WDT}),
     {ok, #state{cacheservers=CacheServers, cmon_time_ref=Cmon_timer_ref}}.
 
@@ -254,10 +254,11 @@ handle_cast({refresh_server, Host, Port, ConnPoolSize}, State) ->
     %% add only necessary connections to reach pool size
     LiveConnections = revalidate_connections(Host, Port),
     if
-	LiveConnections < ConnPoolSize ->
-	    [start_connection(Host, Port) || _ <- lists:seq(1, ConnPoolSize - LiveConnections)];
-	true ->
-	    ok
+        LiveConnections < ConnPoolSize ->
+            error_logger:warning_msg("Refill pool connections for server: ~p~n ",[{Host, Port}]),
+            [start_connection(Host, Port) || _ <- lists:seq(1, ConnPoolSize - LiveConnections)];
+        true ->
+            ok
     end,
     {noreply, State};
 handle_cast({remove_server, Host, Port},State) ->
@@ -294,15 +295,16 @@ handle_cast(_Msg, State) ->
 %%--------------------------------------------------------------------
 handle_info({'DOWN',_MonitorRef,process,Pid, Err},State) ->
     ?DEBUG("Recived DOWN msg: ~p",[{'DOWN',_MonitorRef,process,Pid, Err}]),
+    error_logger:error_msg("Recived DOWN msg: ~p",[{'DOWN',_MonitorRef,process,Pid, Err}]),
          case ets:match(erlmc_connections, {'$1', Pid}) of
-	[[{Host, Port}]] -> 
-	    ets:delete_object(erlmc_connections, {{Host, Port}, Pid}),
-	    case Err of
-		shutdown -> ok;
-		_ -> start_connection(Host, Port)
-	    end;
-	_ -> 
-	    ok
+        [[{Host, Port}]] -> 
+            ets:delete_object(erlmc_connections, {{Host, Port}, Pid}),
+            case Err of
+                shutdown -> ok;
+                _ -> start_connection(Host, Port)
+            end;
+        _ -> 
+            ok
     end,
     {noreply, State};
 handle_info({cmontime,NextTime},State) ->
@@ -342,28 +344,28 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-	
+        
 start_connection(Host, Port) ->
-	case erlmc_conn:start([Host, Port]) of
-		{ok, Pid} -> ets:insert(erlmc_connections, {{Host, Port}, Pid}),
-			     erlang:monitor(process,Pid);
-		_ -> ok
-	end.
+        case erlmc_conn:start([Host, Port]) of
+                {ok, Pid} -> ets:insert(erlmc_connections, {{Host, Port}, Pid}),
+                             erlang:monitor(process,Pid);
+                _ -> ok
+        end.
 
 revalidate_connections(Host, Port) ->
     [(catch gen_server:call(Pid, version, ?TIMEOUT)) || [Pid] <- ets:match(erlmc_connections, {{Host, Port}, '$1'})],
     length(ets:match(erlmc_connections, {{Host, Port}, '$1'})).
 
 add_server_to_continuum(Host, Port) ->
-	[ets:insert(erlmc_continuum, {hash_to_uint(Host ++ integer_to_list(Port) ++ integer_to_list(I)), {Host, Port}}) || I <- lists:seq(1, 100)].
+        [ets:insert(erlmc_continuum, {hash_to_uint(Host ++ integer_to_list(Port) ++ integer_to_list(I)), {Host, Port}}) || I <- lists:seq(1, 100)].
 
 remove_server_from_continuum(Host, Port) ->
-	case ets:match(erlmc_continuum, {'$1', {Host, Port}}) of
-		[] -> 
-			ok;
-		List ->
-			[ets:delete(erlmc_continuum, Key) || [Key] <- List]
-	end.
+        case ets:match(erlmc_continuum, {'$1', {Host, Port}}) of
+                [] -> 
+                        ok;
+                List ->
+                        [ets:delete(erlmc_continuum, Key) || [Key] <- List]
+        end.
 
 is_server_in_continuum(Host, Port) ->
     case ets:match(erlmc_continuum, {'$1', {Host, Port}}) of
@@ -386,10 +388,10 @@ package_key(Key) ->
     lists:flatten(io_lib:format("~p", [Key])).
 
 unique_connections() ->
-	dict:to_list(lists:foldl(
-		fun({Key, Val}, Dict) ->
-			dict:append_list(Key, [Val], Dict)
-		end, dict:new(), ets:tab2list(erlmc_connections))).
+        dict:to_list(lists:foldl(
+                fun({Key, Val}, Dict) ->
+                        dict:append_list(Key, [Val], Dict)
+                end, dict:new(), ets:tab2list(erlmc_connections))).
 
 unique_connection(Host, Port) ->
     case ets:lookup(erlmc_connections, {Host, Port}) of
@@ -410,30 +412,22 @@ hash_to_uint(Key) when is_list(Key) ->
     <<Int:128/unsigned-integer>> = erlang:md5(Key), Int.
 
 %% @spec map_key(Key) -> Conn
-%%		 Key = string()
-%%		 Conn = pid()
+%%               Key = string()
+%%               Conn = pid()
+-spec map_key(list()) -> pid().
 map_key(Key) when is_list(Key) ->
-	First = ets:first(erlmc_continuum),
-    {Host, Port} = 
-		case find_next_largest(hash_to_uint(Key), First) of
-			undefined ->
-				case First of
-					'$end_of_table' -> exit(erlmc_continuum_empty);
-					_ ->
-						[{_, Value}] = ets:lookup(erlmc_continuum, First),
-						Value
-				end;
-			Value -> Value
-		end,
-	unique_connection(Host, Port).
-    
-%% @todo: use sorting algorithm to find next largest
-find_next_largest(_, '$end_of_table') -> 
-	undefined;
+    {Host, Port} =
+        case
+            ets:select(erlmc_continuum,[{{'$1','$2'},[{'>','$1',hash_to_uint(Key)}],['$2']}],1) of
+            {[Val],_} ->
+                Val;
+            '$end_of_table' ->
+                case ets:first(erlmc_continuum) of
+                    '$end_of_table' -> exit(erlmc_continuum_empty);
+                    First ->
+                        [{_, Val}] = ets:lookup(erlmc_continuum, First),
+                        Val
+                end
+        end,
+    unique_connection(Host, Port).
 
-find_next_largest(Int, Key) when Key > Int ->
-	[{_, Val}] = ets:lookup(erlmc_continuum, Key),
-	Val;
-	
-find_next_largest(Int, Key) ->
-	find_next_largest(Int, ets:next(erlmc_continuum, Key)).

@@ -5,7 +5,8 @@
   {registered, [erlotpmc_sup,erlmc]},
   {applications, [
                   kernel,
-                  stdlib
+                  stdlib,
+		  sasl
                  ]},
   {mod, { erlotpmc_app, []}},
   {env, []}
