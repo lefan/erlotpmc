@@ -31,9 +31,10 @@
 %-define(DEBUG(Format, Args),io:format("~s.~w: DEBUG: " ++ Format, [ ?MODULE, ?LINE | Args])).
 -define(DEBUG(Format, Args), true).
 
--record(state, {cacheservers=[]::list(),% list of Cache Servers ex. [{"localhost",Port,PoolSize}]
-                cmon_time_ref
-               }).
+-record(state, {
+	  cacheservers = sets:new(),
+	  cmon_time_ref
+	  }).
 
 %%%===================================================================
 %%% API
@@ -47,9 +48,6 @@
                  replace/2, replace/3, delete/1, increment/4, decrement/4,
                  append/2, prepend/2, stats/0, stats/2, flush/0, flush/1, quit/0, 
                  version/0]).
-
-
-
 %%--------------------------------------------------------------------
 %%% API
 %%--------------------------------------------------------------------
@@ -209,7 +207,8 @@ init([CacheServers]) ->
             _Else -> ?CMONTIME
         end,
     Cmon_timer_ref=erlang:send_after(WDT,self(),{cmontime,WDT}),
-    {ok, #state{cacheservers=CacheServers, cmon_time_ref=Cmon_timer_ref}}.
+    {ok, #state{cacheservers=sets:from_list(CacheServers),
+		cmon_time_ref=Cmon_timer_ref}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -243,10 +242,11 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({add_server, Host, Port, ConnPoolSize}, State) ->
+handle_cast({add_server, Host, Port, ConnPoolSize},#state{cacheservers=CS}=State) ->
     add_server_to_continuum(Host, Port),
     [start_connection(Host, Port) || _ <- lists:seq(1, ConnPoolSize)],
-    {noreply, State};
+    CS2=sets:add_element({Host, Port, ConnPoolSize},CS),
+    {noreply, State#state{cacheservers=CS2}};
 
 handle_cast({refresh_server, Host, Port, ConnPoolSize}, State) ->
     %% adding to continuum is idempotent
@@ -261,10 +261,12 @@ handle_cast({refresh_server, Host, Port, ConnPoolSize}, State) ->
             ok
     end,
     {noreply, State};
-handle_cast({remove_server, Host, Port},State) ->
+handle_cast({remove_server, Host, Port},#state{cacheservers=CS}=State) ->
     [(catch gen_server:call(Pid, quit, ?TIMEOUT)) || [Pid] <- ets:match(erlmc_connections, {{Host, Port}, '$1'})],
     remove_server_from_continuum(Host, Port),
-    {noreply, State};
+    L1=[{H,P,PL}||{H,P,PL} <- sets:to_list(CS), H == Host, P==Port],
+    CS2=sets:subtract(CS,sets:from_list(L1)),
+    {noreply, State#state{cacheservers=CS2}};
 
 handle_cast({add_connection, Host, Port},State) ->
     start_connection(Host, Port),
@@ -275,9 +277,9 @@ handle_cast({remove_connection, Host, Port},State) ->
     (catch gen_server:call(Pid, quit, ?TIMEOUT)),
     {noreply, State};
 
-handle_cast(refresh_all_servers,#state{cacheservers=CacheServers}=State) ->
+handle_cast(refresh_all_servers,#state{cacheservers=CS}=State) ->
     ?DEBUG("Refresh all servers ~p~n:",[CacheServers]),
-    [refresh_server(Host, Port,PoolSize)||{Host,Port,PoolSize} <- CacheServers],
+    [refresh_server(Host, Port,PoolSize)||{Host,Port,PoolSize} <- sets:to_list(CS)],
     {noreply, State};
 
 handle_cast(_Msg, State) ->
