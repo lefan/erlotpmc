@@ -134,11 +134,11 @@ delete(Key0) ->
     Key = package_key(Key0),
     call(map_key(Key), {delete, Key}, ?TIMEOUT).
 
-increment(Key0, Value, Initial, Expiration) when is_binary(Value), is_binary(Initial), is_integer(Expiration) ->
+increment(Key0, Value, Initial, Expiration) when is_integer(Value), is_integer(Initial), is_integer(Expiration) ->
     Key = package_key(Key0),
     call(map_key(Key), {increment, Key, Value, Initial, Expiration}, ?TIMEOUT).
 
-decrement(Key0, Value, Initial, Expiration) when is_binary(Value), is_binary(Initial), is_integer(Expiration) ->
+decrement(Key0, Value, Initial, Expiration) when is_integer(Value), is_integer(Initial), is_integer(Expiration) ->
     Key = package_key(Key0),
     call(map_key(Key), {decrement, Key, Value, Initial, Expiration}, ?TIMEOUT).
 
